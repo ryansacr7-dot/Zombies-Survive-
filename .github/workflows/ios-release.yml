@@ -1,0 +1,279 @@
+name: Build Zombies Survive for TestFlight
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  deploy-ios:
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Prepare Web Build Folder
+        run: |
+          set -e
+          rm -rf www
+          mkdir -p www
+          cp index.html www/
+          # optional extras — ignored if the game is a single file
+          cp -r assets www/ 2>/dev/null || true
+          cp *.js    www/ 2>/dev/null || true
+          cp *.css   www/ 2>/dev/null || true
+          echo "--- www contents ---"
+          ls -la www
+
+      - name: Install Mobile Environment Wrapper
+        run: |
+          set -e
+          npm init -y
+          npm install @capacitor/core@5 @capacitor/cli@5 @capacitor/ios@5 @capacitor/local-notifications@5 @capacitor/haptics@5
+          if [ ! -f capacitor.config.json ] && [ ! -f capacitor.config.ts ]; then
+            npx cap init "Zombies Survive" "com.ryonic.zombiessurvive" --web-dir=www
+          fi
+          npx cap add ios
+          npx cap sync ios
+
+      # Bakes your own app icon into the build. Must run AFTER "npx cap add ios",
+      # because that step regenerates the whole iOS project and would wipe it.
+      # Uses sips, which is built into macOS — no npm install, nothing to break.
+      - name: Apply App Icon
+        run: |
+          set -e
+          SRC="resources/icon.png"
+          [ -f "$SRC" ] || SRC="icon.png"
+          if [ ! -f "$SRC" ]; then
+            echo "!!  $SRC not found — keeping the default icon."
+            echo "    Commit a 1024x1024 PNG (no transparency) to that path."
+            exit 0
+          fi
+
+          DIM=$(sips -g pixelWidth -g pixelHeight "$SRC" | awk '/pixel/{print $2}' | paste -sd'x' -)
+          echo "Source icon: $DIM"
+          if [ "$DIM" != "1024x1024" ]; then
+            echo "!!  Icon must be exactly 1024x1024. Got $DIM."
+            exit 1
+          fi
+          if sips -g hasAlpha "$SRC" | grep -q "hasAlpha: yes"; then
+            echo "    Icon has an alpha channel — flattening it, Apple rejects alpha."
+            sips -s format png --deleteColorManagementProperties "$SRC" --out "$RUNNER_TEMP/flat.png" >/dev/null
+            SRC="$RUNNER_TEMP/flat.png"
+          fi
+
+          SET="ios/App/App/Assets.xcassets/AppIcon.appiconset"
+          rm -rf "$SET"; mkdir -p "$SET"
+
+          gen () { sips -z "$1" "$1" "$SRC" --out "$SET/$2" >/dev/null; }
+          for S in 20 29 40 58 60 76 80 87 120 152 167 180 1024; do
+            gen $S "icon-${S}.png"
+          done
+
+          cat > "$SET/Contents.json" <<'JSON'
+          {
+            "images": [
+              { "size": "20x20",     "idiom": "iphone",       "filename": "icon-40.png",   "scale": "2x" },
+              { "size": "20x20",     "idiom": "iphone",       "filename": "icon-60.png",   "scale": "3x" },
+              { "size": "29x29",     "idiom": "iphone",       "filename": "icon-58.png",   "scale": "2x" },
+              { "size": "29x29",     "idiom": "iphone",       "filename": "icon-87.png",   "scale": "3x" },
+              { "size": "40x40",     "idiom": "iphone",       "filename": "icon-80.png",   "scale": "2x" },
+              { "size": "40x40",     "idiom": "iphone",       "filename": "icon-120.png",  "scale": "3x" },
+              { "size": "60x60",     "idiom": "iphone",       "filename": "icon-120.png",  "scale": "2x" },
+              { "size": "60x60",     "idiom": "iphone",       "filename": "icon-180.png",  "scale": "3x" },
+              { "size": "20x20",     "idiom": "ipad",         "filename": "icon-20.png",   "scale": "1x" },
+              { "size": "20x20",     "idiom": "ipad",         "filename": "icon-40.png",   "scale": "2x" },
+              { "size": "29x29",     "idiom": "ipad",         "filename": "icon-29.png",   "scale": "1x" },
+              { "size": "29x29",     "idiom": "ipad",         "filename": "icon-58.png",   "scale": "2x" },
+              { "size": "40x40",     "idiom": "ipad",         "filename": "icon-40.png",   "scale": "1x" },
+              { "size": "40x40",     "idiom": "ipad",         "filename": "icon-80.png",   "scale": "2x" },
+              { "size": "76x76",     "idiom": "ipad",         "filename": "icon-76.png",   "scale": "1x" },
+              { "size": "76x76",     "idiom": "ipad",         "filename": "icon-152.png",  "scale": "2x" },
+              { "size": "83.5x83.5", "idiom": "ipad",         "filename": "icon-167.png",  "scale": "2x" },
+              { "size": "1024x1024", "idiom": "ios-marketing","filename": "icon-1024.png", "scale": "1x" }
+            ],
+            "info": { "version": 1, "author": "xcode" }
+          }
+          JSON
+
+          echo "--- icon set written ---"
+          ls -la "$SET"
+
+      # A build number Apple has not seen before. Every upload needs a unique one,
+      # and the run number gives you that for free.
+      - name: Set Version and Build Number
+        run: |
+          set -e
+          PLIST="ios/App/App/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 1.0.0" "$PLIST" \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string 1.0.0" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" "$PLIST" \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${{ github.run_number }}" "$PLIST"
+          # the game uses no encryption beyond standard HTTPS
+          /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST" \
+            || /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST"
+          echo "Build number: ${{ github.run_number }}"
+
+      - name: Write App Store Connect API Key
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: |
+          set -e
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          # printf, not echo — echo mangles the newlines inside a .p8 and the key then fails to parse
+          printf '%s\n' "$API_KEY_CONTENT" > "$HOME/.appstoreconnect/private_keys/AuthKey_${API_KEY_ID}.p8"
+          head -1 "$HOME/.appstoreconnect/private_keys/AuthKey_${API_KEY_ID}.p8"
+
+      # Archive WITHOUT signing. With automatic signing, xcodebuild tries to make a
+      # *development* profile first, and a development profile needs a registered
+      # device — which a cloud runner does not have. Signing happens at export instead,
+      # where the App Store profile needs no devices at all.
+      # Asks Apple what this key can actually do, so we stop guessing.
+      # Never fails the build — it is purely a report.
+      - name: Check what the API key can do
+        continue-on-error: true
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: |
+          npm install jsonwebtoken@9 --no-save --silent
+          node <<'JS'
+          const jwt = require('jsonwebtoken');
+          const key = process.env.API_KEY_CONTENT;
+          if(!key || !key.includes('BEGIN PRIVATE KEY')){
+            console.log('XX  The .p8 secret is empty or malformed.');
+            console.log('    It must include the BEGIN PRIVATE KEY and END PRIVATE KEY lines.');
+            process.exit(0);
+          }
+          const token = jwt.sign({}, key, {
+            algorithm: 'ES256', expiresIn: '10m',
+            issuer: process.env.API_ISSUER_ID,
+            audience: 'appstoreconnect-v1',
+            header: { alg:'ES256', kid: process.env.API_KEY_ID, typ:'JWT' }
+          });
+          const H = { Authorization: 'Bearer ' + token };
+          const base = 'https://api.appstoreconnect.apple.com/v1/';
+          (async () => {
+            // 1. is the key valid at all?
+            let r = await fetch(base + 'apps?limit=1', { headers: H });
+            console.log(r.ok ? 'OK  Key is valid and authenticating.'
+                             : 'XX  Key rejected (' + r.status + '). Wrong Key ID, Issuer ID or .p8.');
+            if(!r.ok) return;
+
+            // 2. can it see certificates? this is the cloud-signing permission
+            r = await fetch(base + 'certificates?limit=200', { headers: H });
+            if(r.ok){
+              const d = await r.json();
+              const dist = d.data.filter(c => /DISTRIBUTION/i.test(c.attributes.certificateType));
+              console.log('OK  Key can read certificates. Team has ' + d.data.length +
+                          ' total, ' + dist.length + ' distribution.');
+              if(dist.length === 0){
+                console.log('!!  No distribution certificate exists yet.');
+                console.log('    Cloud signing must create one, which needs an ADMIN key.');
+              }
+            } else {
+              console.log('XX  Key CANNOT read certificates (' + r.status + ').');
+              console.log('    This is the cloud signing permission error.');
+              console.log('    The key role is not Admin. Make a new Team Key with Access = Admin.');
+            }
+
+            // 3. does the app record exist in App Store Connect?
+            r = await fetch(base + 'apps?filter[bundleId]=com.ryonic.zombiessurvive', { headers: H });
+            if(r.ok){
+              const d = await r.json();
+              console.log(d.data.length
+                ? 'OK  App record found: ' + d.data[0].attributes.name
+                : 'XX  No app record for com.ryonic.zombiessurvive. Create it in App Store Connect > My Apps > + > New App.');
+            }
+          })();
+          JS
+
+      - name: Archive (unsigned)
+        run: |
+          set -e
+          xcodebuild -workspace ios/App/App.xcworkspace \
+                     -scheme App \
+                     -configuration Release \
+                     -destination 'generic/platform=iOS' \
+                     -archivePath "$RUNNER_TEMP/ZombiesSurvive.xcarchive" \
+                     DEVELOPMENT_TEAM=XL662VBNF4 \
+                     IPHONEOS_DEPLOYMENT_TARGET=15.0 \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGN_IDENTITY="" \
+                     CODE_SIGN_ENTITLEMENTS="" \
+                     archive
+
+      # Signing happens here, with the App Store profile
+      - name: Export IPA (signed for the App Store)
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -e
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <!-- "app-store" is deprecated; "app-store-connect" is the current name -->
+              <string>app-store-connect</string>
+              <key>teamID</key>
+              <string>XL662VBNF4</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>uploadSymbols</key>
+              <true/>
+          </dict>
+          </plist>
+          PLIST
+
+          xcodebuild -exportArchive \
+                     -archivePath "$RUNNER_TEMP/ZombiesSurvive.xcarchive" \
+                     -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+                     -exportPath "$RUNNER_TEMP/build" \
+                     -allowProvisioningUpdates \
+                     -authenticationKeyID "$API_KEY_ID" \
+                     -authenticationKeyIssuerID "$API_ISSUER_ID" \
+                     -authenticationKeyPath "$HOME/.appstoreconnect/private_keys/AuthKey_${API_KEY_ID}.p8"
+
+          echo "--- exported ---"
+          ls -la "$RUNNER_TEMP/build"
+          IPA=$(find "$RUNNER_TEMP/build" -name '*.ipa' | head -1)
+          echo "IPA_PATH=$IPA" >> "$GITHUB_ENV"
+
+      # THIS is what was missing. Without it the build succeeds and nothing
+      # ever arrives in TestFlight.
+      - name: Upload to TestFlight
+        uses: apple-actions/upload-testflight-build@v4
+        with:
+          app-path: ${{ env.IPA_PATH }}
+          issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          api-private-key: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          # without this TestFlight stalls on "Missing Compliance" and never
+          # hands the build to testers
+          uses-non-exempt-encryption: false
+          # Don't sit polling Apple for processing status. The upload itself is
+          # already complete by this point, and the API token expires during the
+          # long wait, which turns a successful upload into a red 401.
+          wait-for-processing: false
+
+      # So you can download and inspect the build even if the upload is rejected
+      - name: Keep the IPA as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZombiesSurvive-ipa
+          path: ${{ runner.temp }}/build
+          if-no-files-found: ignore
