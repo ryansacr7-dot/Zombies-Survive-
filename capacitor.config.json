@@ -1,0 +1,14 @@
+{
+  "appId": "com.ryonic.zombiessurvive",
+  "appName": "Zombies Survive",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#14110f"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "iconColor": "#ffb535"
+    }
+  }
+}
