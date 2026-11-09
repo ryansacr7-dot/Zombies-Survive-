@@ -233,7 +233,14 @@ canvas#cv{display:block;touch-action:none;width:100%;height:100%}
 .story img{width:46px;height:46px;border-radius:10px}
 .story span{flex:1;font-size:15px}.story span small{display:block;font-size:11px;color:var(--dim);font-family:system-ui,sans-serif}
 .story.locked{opacity:.4}
-#hand{position:fixed;z-index:15;font-size:40px;pointer-events:none;display:none;filter:drop-shadow(0 3px 0 #000);animation:hand 1s ease-in-out infinite;transform-origin:top left}
+[hidden]{display:none!important}
+#tut{flex:1;min-width:0;border-radius:12px;border:2px solid var(--SSR);background:linear-gradient(#4a3810,#241a12);box-shadow:0 0 14px rgba(255,207,58,.35),0 2px 0 #000;padding:6px 8px;display:flex;align-items:center;gap:8px;animation:nin .3s}
+#tut img{width:44px;height:44px;border-radius:10px;border:2px solid var(--acc);flex:0 0 44px}
+#tut .tx{flex:1;min-width:0;font-size:14px;line-height:1.3;text-shadow:0 1px 0 #000}
+#tut .tx b{display:block;font-size:10px;color:var(--acc);font-weight:normal;letter-spacing:1px}
+#tut .sk{flex:0 0 auto;font-size:11px;padding:5px 8px;border-radius:8px;border:2px solid #120d0a;background:#2a2019;cursor:pointer}
+#tut .go{flex:0 0 auto;font-size:13px;padding:7px 10px;border-radius:10px;border:2px solid #120d0a;background:linear-gradient(#8fe86a,#3a9a2a);color:#0d2a0d;cursor:pointer;box-shadow:0 2px 0 #000}
+#hand{position:fixed;z-index:25;font-size:40px;pointer-events:none;display:none;filter:drop-shadow(0 3px 0 #000);animation:hand 1s ease-in-out infinite;transform-origin:top left}
 @keyframes hand{50%{transform:translate(6px,10px) scale(.92)}}
 .fly{position:fixed;z-index:30;font-size:22px;pointer-events:none;transition:transform .7s cubic-bezier(.5,-0.3,.7,1),opacity .7s;filter:drop-shadow(0 2px 0 #000)}
 </style>
@@ -258,6 +265,7 @@ canvas#cv{display:block;touch-action:none;width:100%;height:100%}
     </div>
     <div id="subRow">
       <div id="dayPill">DAY 1<small>☀️</small></div>
+      <div id="tut" hidden><img id="tutImg" alt=""><div class="tx"><b id="tutN">BOOT CAMP</b><span id="tutT"></span></div><span id="tutBtns"></span></div>
       <div id="quest"><div class="qi" id="qI">📜</div><div class="qt"><b id="qCh">CHAPTER 1</b><span id="qD"></span><div class="qb"><i id="qF"></i></div></div><div class="qr" id="qR"></div></div>
     </div>
   </div>
@@ -301,20 +309,20 @@ canvas#cv{display:block;touch-action:none;width:100%;height:100%}
 /* =====================================================================
    DATA
 ===================================================================== */
-const N=25,C=12,DAY=45,SAVE_KEY='zs_save_v4';
+const N=25,C=12,DAY=70,SAVE_KEY='zs_save_v4';
 const B={
   farm:  {name:'Farm',icon:'🌾',cost:{wood:10},on:[0],hp:40,worker:1,prod:{food:.6},hint:'grass',hq:1,desc:'Grows food. Build on grass.'},
   lumber:{name:'Lumber Camp',icon:'🪓',cost:{food:8},on:[1],hp:40,worker:1,prod:{wood:.6},hint:'forest',hq:1,desc:'Chops wood. Build in forests.'},
   scrap: {name:'Scrapyard',icon:'🔩',cost:{wood:15},on:[2],hp:40,worker:1,prod:{scrap:.35},hint:'ruins',hq:1,desc:'Salvages scrap. Build on ruins.'},
   tent:  {name:'Tent',icon:'⛺',cost:{wood:20},on:[0,1,2],hp:30,worker:0,hq:1,desc:'New survivors arrive at dawn.'},
   wall:  {name:'Wall',icon:'🧱',cost:{wood:6},on:[0,1,2],hp:130,worker:0,hq:1,desc:'Zombies chew on it first.'},
-  turret:{name:'Turret',icon:'🔫',cost:{wood:10,scrap:10},on:[0,1,2],hp:60,worker:1,range:2.7,dmg:9,rate:.65,hq:1,desc:'Shoots zombies nearby.'},
+  turret:{name:'Turret',icon:'🔫',cost:{wood:10,scrap:10},on:[0,1,2],hp:80,worker:1,range:3,dmg:11,rate:.6,hq:1,desc:'Shoots zombies nearby.'},
   gen:   {name:'Power Plant',icon:'⚡',cost:{wood:25,scrap:10},on:[0,1,2],hp:70,worker:1,hq:1,desc:'Powers your whole base. Upgrade it for more 🔌 power.'},
   kitchen:{name:'Kitchen',icon:'🍲',cost:{wood:20,scrap:8},on:[0,1,2],hp:45,worker:1,hq:2,desc:'Cooks 3 🍖 into 1 🍲 meal. Meals keep survivors happy.'},
   radio: {name:'Radio Tower',icon:'📡',cost:{wood:30,scrap:25},on:[0,1,2],hp:50,worker:1,prod:{tokens:.012},hq:2,desc:'Picks up 📻 recruit codes.'},
   clinic:{name:'Clinic',icon:'🏥',cost:{wood:35,scrap:30},on:[0,1,2],hp:60,worker:1,hq:3,desc:'Heals heroes & buildings nearby.'},
   mortar:{name:'Mortar',icon:'💣',cost:{wood:30,scrap:45},on:[0,1,2],hp:70,worker:1,range:4.2,dmg:28,rate:2.6,hq:4,desc:'Long-range explosive shells.'},
-  hq:    {name:'Headquarters',icon:'🏠',hp:250,worker:0,range:2.2,dmg:6,rate:.8}
+  hq:    {name:'Headquarters',icon:'🏠',hp:350,worker:0,range:2.8,dmg:10,rate:.7}
 };
 const BUILD_ORDER=['farm','lumber','scrap','turret','wall','gen','tent','kitchen','radio','clinic','mortar'];
 const PUSE={farm:1,lumber:1,scrap:2,turret:2,radio:2,clinic:2,mortar:3,kitchen:2};
@@ -324,10 +332,10 @@ const WEATHER={clear:{ic:'☀️',n:'Clear skies',d:'A calm day.'},rain:{ic:'�
 const HQUP=[null,{wood:40,scrap:20},{wood:90,scrap:55},{wood:160,scrap:110},{wood:250,scrap:180}];
 const HQSLOTS=[0,2,3,4,4,5];
 const ZT={
-  walker:{hp:20,sp:.6,dmg:6,r:.22,xp:5},
-  runner:{hp:12,sp:1.2,dmg:4,r:.18,xp:6},
-  brute: {hp:75,sp:.36,dmg:16,r:.32,xp:15},
-  boss:  {hp:600,sp:.3,dmg:45,r:.46,xp:120}
+  walker:{hp:18,sp:.45,dmg:4,r:.22,xp:5},
+  runner:{hp:11,sp:.9,dmg:3,r:.18,xp:6},
+  brute: {hp:60,sp:.3,dmg:10,r:.32,xp:15},
+  boss:  {hp:450,sp:.26,dmg:28,r:.46,xp:120}
 };
 const SHIRTS=['#6b5a4a','#4a5a6b','#7a3b3b','#5a6b4a','#6b6b6b','#3b3b5a','#8a7a5a','#5a3b5a'];
 const CLS={
@@ -379,6 +387,7 @@ const PASN={food:v=>'+'+pc(v)+' food',wood:v=>'+'+pc(v)+' wood',scrap:v=>'+'+pc(
   turret:v=>'+'+pc(v)+' turret damage',heroHp:v=>'+'+pc(v)+' HP for all heroes',heroDmg:v=>'+'+pc(v)+' damage for all heroes',
   stam:v=>'Scouting costs '+v+' less ⚡',maxStam:v=>'+'+v+' max ⚡',regen:v=>'HQ heals '+v+' HP/s',wall:v=>'Walls take '+pc(v)+' less damage'};
 function pc(v){return Math.round(v*100)+'%';}
+const DIFF={relaxed:{n:.6,hp:.7,dmg:.6,ic:'🌱',name:'Relaxed'},normal:{n:1,hp:1,dmg:1,ic:'⚔️',name:'Normal'},hardcore:{n:1.5,hp:1.4,dmg:1.4,ic:'💀',name:'Hardcore'}};
 const RES_ICON={food:'🍖',wood:'🪵',scrap:'⚙️',tokens:'📻',stam:'⚡',meals:'🍲'};
 const CHAPTERS=['First Light','The Signal','The Abomination','Last Hope','The Beacon'];
 const QUESTS=[
@@ -765,21 +774,34 @@ function notify(icon,text,type,key,cool){
   if(type==='bad'||type==='warn')buzz('light');
 }
 function LN(){return window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.LocalNotifications;}
-function askPushPermission(){const L=LN();if(L&&!SET.askedPush){SET.askedPush=true;saveSet();try{L.requestPermissions().catch(()=>{});}catch(e){}}}
+const PIDS=[101,102,103,104,105,106];
+function cancelPush(){const L=LN();if(!L)return;try{L.cancel({notifications:PIDS.map(id=>({id}))}).catch(()=>{});}catch(e){}}
+async function askPushPermission(){const L=LN();if(!L)return false;try{const r=await L.requestPermissions();SET.askedPush=true;SET.push=r.display==='granted';saveSet();if(SET.push)schedulePush();return SET.push;}catch(e){return false;}}
+function pushOffer(){
+  if(!LN()||SET.askedPush||!G||G.tut||!running)return;
+  if(G.paused||talkOn){setTimeout(pushOffer,4000);return;}
+  openModal('📱 Phone alerts?');
+  $('modB').innerHTML='<div style="text-align:center"><img src="'+IMG.ada+'" style="width:84px;border-radius:16px;border:3px solid var(--acc)"><p style="margin:10px 0;font-size:16px">Want me to warn you when the horde is coming, your storage is full, or your daily reward is ready?</p><div class="acts"><button class="btn gray" id="pNo">Not now</button><button class="btn green" id="pYes">Turn on alerts</button></div></div>';
+  $('pNo').onclick=()=>{SET.askedPush=true;SET.push=false;saveSet();closeModal();toast('You can turn alerts on in ⚙️ Settings');};
+  $('pYes').onclick=async()=>{closeModal();const ok=await askPushPermission();toast(ok?'📱 Alerts on!':'Alerts are off. Turn them on in iPhone Settings → Zombies Survive.');};
+}
 function schedulePush(){
-  const L=LN();if(!L||!G)return;
+  const L=LN();if(!L||!G||G.tut||!SET.push)return;
   try{
-    L.cancel({notifications:[{id:101},{id:102},{id:103},{id:104}]}).catch(()=>{});
-    const now=Date.now(),list=[],full=fullInSecs();
-    if(full>60)list.push({id:101,title:'🍖 Your storage is full!',body:'Your farms and camps are overflowing. Come collect before it goes to waste!',schedule:{at:new Date(now+full*1000)}});
-    list.push({id:102,title:'⚡ Your scouts are rested',body:'Stamina is full. Unexplored tiles are waiting!',schedule:{at:new Date(now+15*60e3)}});
-    list.push({id:103,title:'🧟 The horde is gathering...',body:'Your survivors need their leader. Get back before night falls!',schedule:{at:new Date(now+20*3600e3)}});
-    const t=new Date();t.setDate(t.getDate()+1);t.setHours(10,0,0,0);
+    L.cancel({notifications:PIDS.map(id=>({id}))}).catch(()=>{});
+    const now=Date.now(),list=[],full=fullInSecs(),at=ms=>({at:new Date(now+ms)});
+    if(full>120)list.push({id:101,title:'📦 Your storage is full!',body:'Your farms and camps are overflowing. Collect before it goes to waste!',schedule:at(full*1000)});
+    list.push({id:102,title:'⚡ Your scouts are rested',body:'Stamina is full. Unexplored tiles are waiting, Commander!',schedule:at(20*60e3)});
+    list.push({id:103,title:'🧟 The horde is gathering...',body:'Night '+G.day+' is coming. Your survivors need their leader!',schedule:at(4*3600e3)});
+    const t=new Date();t.setDate(t.getDate()+(G.lastDaily===todayStr()?1:0));t.setHours(10,0,0,0);if(t.getTime()<now+60e3)t.setDate(t.getDate()+1);
     list.push({id:104,title:'🎁 Daily supply drop!',body:'Your daily reward is ready. Keep your streak going!',schedule:{at:t}});
+    list.push({id:105,title:'🍖 Your survivors are hungry',body:'Your survivors are waiting for food. Don\'t let them leave the camp!',schedule:at(20*3600e3)});
+    list.push({id:106,title:'🔥 Ada: "Commander, where are you?"',body:'The camp is holding on, but not for long. Come back and lead us!',schedule:at(3*86400e3)});
     L.schedule({notifications:list}).catch(()=>{});
   }catch(e){}
 }
-function cancelPush(){const L=LN();if(!L)return;try{L.cancel({notifications:[{id:101},{id:102},{id:103},{id:104}]}).catch(()=>{});}catch(e){}}
+function testPush(){const L=LN();if(!L){toast('Phone alerts only work in the iPhone app');return;}
+  L.schedule({notifications:[{id:199,title:'🧟 Test alert!',body:'Phone alerts are working, Commander. 💪',schedule:{at:new Date(Date.now()+5000)}}]}).then(()=>toast('Test alert in 5 seconds. Go to your home screen!')).catch(()=>toast('Alerts are blocked. Turn them on in iPhone Settings → Zombies Survive.'));}
 
 /* =====================================================================
    STATE / SAVE
@@ -816,7 +838,7 @@ function newGame(){G=baseState();G.tiles=genMap();G.surv=0;addSurv(4,true);recal
 function afterLoad(){$('speed').classList.toggle('on',false);closeSheet();buildSquad();refreshQuest();}
 const SAVE_FIELDS=['food','wood','scrap','tokens','surv','stam','day','phase','t','extraWave','kills','owned','squad','pulls','pitySR','pityS','tutPulled','stats','quest','notes','unread','lastDaily','dailyStreak','streak','best','falls','introDone','seen','survs','meals','weather','pois'];
 function save(){
-  if(!G||!running)return;
+  if(!G||!running||G.tut)return;
   try{
     const d={v:4,at:Date.now(),cam:{x:G.cam.x,y:G.cam.y,z:G.cam.z}};
     for(const k of SAVE_FIELDS)d[k]=G[k];
@@ -935,6 +957,7 @@ function qProg(q){
 }
 function chapter(){return Math.min(CHAPTERS.length-1,Math.floor(G.quest/8));}
 function refreshQuest(){
+  if(G&&G.tut)return;
   const q=curQuest(),p=Math.min(q.n,qProg(q)),done=p>=q.n;
   $('qCh').textContent='CHAPTER '+(chapter()+1)+' · '+CHAPTERS[chapter()].toUpperCase();
   $('qI').textContent=done?'🎁':q.ic||'📜';
@@ -974,7 +997,13 @@ function hintTarget(){
   return null;
 }
 function updHand(){
-  const h=$('hand'),tg=running?hintTarget():null;
+  const h=$('hand'),tg=running?(TUT?tutTarget():hintTarget()):null;
+  if(talkOn||!$('mod').classList.contains('hide')&&!(tg&&tg.q)){h.style.display='none';return;}
+  if(tg&&tg.q){const e=document.querySelector(tg.q);const r=e&&e.getBoundingClientRect();if(!e||!e.offsetParent||talkOn||!r||r.bottom<0||r.top>innerHeight||r.right<0||r.left>innerWidth){h.style.display='none';return;}h.style.display='block';h.style.left=(r.left+r.width/2-8)+'px';h.style.top=(r.top+r.height/2-4)+'px';return;}
+  if(TUT&&tg&&(tg.tile||tg.w)&&ptrs.size===0&&!G.camTo){const wx=tg.tile?tg.tile.x+.5:tg.w[0],wy=tg.tile?tg.tile.y+.5:tg.w[1],[sx,sy]=w2s(wx,wy);
+    const top=$('subRow').getBoundingClientRect().bottom-cv.getBoundingClientRect().top+40,bot=$('bot').getBoundingClientRect().top-cv.getBoundingClientRect().top-40;
+    if(sy<top||sy>bot||sx<30||sx>VW-30)panTo(wx,wy+((top+bot)/2-VH/2)/G.cam.z);}
+  if(tg&&tg.w){const r=cv.getBoundingClientRect(),[sx,sy]=w2s(tg.w[0],tg.w[1]);h.style.display='block';h.style.left=(r.left+sx-6)+'px';h.style.top=(r.top+sy-2)+'px';return;}
   if(!tg||(!tg.tile&&!tg.el)||$('talk').classList.contains('show')){h.style.display='none';return;}
   let x,y;
   if(tg.tile){const r=cv.getBoundingClientRect(),[sx,sy]=w2s(tg.tile.x+.5,tg.tile.y+.5);x=r.left+sx-6;y=r.top+sy-2;}
@@ -1032,17 +1061,17 @@ function heroAlert(){if(!G.survs)return false;return Object.keys(G.owned).some(i
    ZOMBIES / COMBAT
 ===================================================================== */
 function makeZombie(type,x,y){
-  const d=ZT[type],sc=1+(G.day-1)*.14;
-  return {type,x,y,hp:d.hp*sc,max:d.hp*sc,sp:d.sp*(.9+Math.random()*.2),dmg:d.dmg*(1+(G.day-1)*.06),target:null,re:0,atk:false,wob:Math.random()*6,slow:0,stun:0,flash:0,lh:null,tok:false,shirt:SHIRTS[rnd(SHIRTS.length)],ang:Math.PI/2};
+  const d=ZT[type],dm=DIFF[SET.diff||'normal'],sc=(1+(G.day-1)*.08)*dm.hp;
+  return {type,x,y,hp:d.hp*sc,max:d.hp*sc,sp:d.sp*(.9+Math.random()*.2),dmg:d.dmg*(1+(G.day-1)*.04)*dm.dmg,target:null,re:0,atk:false,wob:Math.random()*6,slow:0,stun:0,flash:0,lh:null,tok:false,shirt:SHIRTS[rnd(SHIRTS.length)],ang:Math.PI/2};
 }
 function spawnAt(t,type,n){for(let i=0;i<n;i++)G.zs.push(makeZombie(type,t.x+.2+Math.random()*.6,t.y+.2+Math.random()*.6));}
 function frontier(){let m=2;for(const t of G.tiles)if(!t.fog)m=Math.max(m,Math.max(Math.abs(t.x-C),Math.abs(t.y-C)));return m;}
 function spawnEdge(type){
-  const R=Math.min(C+.4,frontier()+2.5),side=rnd(4),p=(Math.random()*2-1)*R;
+  const R=G.tut?5.5:Math.min(C+.4,Math.max(8,frontier()+5)),side=rnd(4),p=(Math.random()*2-1)*R;
   const pos=[[C+.5+p,C+.5-R],[C+.5+R,C+.5+p],[C+.5+p,C+.5+R],[C+.5-R,C+.5+p]][side];
   if(!type){type='walker';const r=Math.random();
-    if(G.day>=4&&r<Math.min(.25,(G.day-3)*.06))type='brute';
-    else if(G.day>=2&&r<Math.min(.6,.25+(G.day-2)*.1))type='runner';}
+    if(G.day>=6&&r<Math.min(.2,(G.day-5)*.04))type='brute';
+    else if(G.day>=3&&r<Math.min(.45,.15+(G.day-3)*.06))type='runner';}
   const z=makeZombie(type,pos[0],pos[1]);G.zs.push(z);if(Math.random()<.25)SFX.groan();return z;
 }
 function nearestBuilding(z){let best=null,bd=1e9;for(const t of G.blds.filter(t=>t.b)){const d=dist(t.x+.5,t.y+.5,z.x,z.y);if(d<bd){bd=d;best=t;}}return best;}
@@ -1159,8 +1188,9 @@ function openEvent(t){
 function startNight(early){
   if(G.phase!=='day')return;
   G.phase='night';const boss=G.day%5===0;G.nightKills=0;
-  const n=Math.round((4+(G.day-1)*3+G.extraWave)*(G.weather==='fog'?1.3:1));G.extraWave=0;
-  G.spawnLeft=n;G.spawnTotal=n+(boss?1:0);G.spawnT=1.2;G.spawnGap=Math.max(.3,13/n);G.bossT=boss?5:-1;
+  let n=Math.max(2,Math.round((3+(G.day-1)*2+G.extraWave)*(G.weather==='fog'?1.3:1)*DIFF[SET.diff||'normal'].n));G.extraWave=0;
+  if(G.tut){n=3;G.weather='clear';}
+  G.spawnLeft=n;G.spawnTotal=n+(boss?1:0);G.spawnT=3;G.spawnGap=Math.max(.7,22/n);G.bossT=boss?12:-1;
   banner('NIGHT '+G.day,'#9fb4ff');SFX.night();buzz('medium');closeSheet();G.sel=null;
   stat('night_start');if(!G.seen.firstNight)setTimeout(()=>playScene('firstNight'),900);
   if(early&&G.t>5){const bonus=Math.ceil(G.t/3);give({scrap:bonus});notify('⏱️','Brave! Early start bonus: +'+bonus+' ⚙️','good');}
@@ -1245,7 +1275,7 @@ function update(dt){
     for(const o of G.blds.filter(t=>t.b))if(dist(o.x+.5,o.y+.5,cx,cy)<2.4)o.b.hp=Math.min(o.b.max,o.b.hp+2*hr*dt);}
   G.stamT+=dt;const sr=G.phase==='day'?3:6;if(G.stamT>=sr){G.stamT=0;if(G.stam<maxStam())G.stam++;}
   if(G.rally>0)G.rally-=dt;
-  if(G.phase==='day'){G.t-=dt;if(G.t<=0)startNight(false);}
+  if(G.phase==='day'){if(!G.tut)G.t-=dt;if(G.t<=0)startNight(false);}
   else{
     if(G.bossT>0){G.bossT-=dt;if(G.bossT<=0){const z=spawnEdge('boss');z.tok=true;banner('☠️ THE ABOMINATION','#d48aff');notify('☠️','The Abomination has arrived!','bad');shake(6);SFX.alarm();}}
     if(G.spawnLeft>0){G.spawnT-=dt;if(G.spawnT<=0){spawnEdge();G.spawnLeft--;G.spawnT=G.spawnGap;}}
@@ -1264,7 +1294,7 @@ function update(dt){
   // structures
   for(const t of G.blds.filter(t=>t.b)){
     const b=t.b,d=B[b.type];if(!d.range)continue;
-    const pw=b.type==='hq'?1:Math.max(.15,bEff(t)),lm=b.type==='hq'?1:lvlMul(b);
+    const pw=b.type==='hq'?1:Math.max(.55,bEff(t)),lm=b.type==='hq'?1:lvlMul(b);
     b.cd-=dt*(G.rally>0&&b.type!=='hq'?2:1)*pw;const cx=t.x+.5,cy=t.y+.5,rng=d.range+(b.type==='hq'?0:((b.lvl||1)-1)*.2);let tg=null,bd=rng;
     for(const z of G.zs){if(z.hp<=0)continue;const dd=dist(z.x,z.y,cx,cy);if(dd<bd){bd=dd;tg=z;}}
     if(tg){b.ang=Math.atan2(tg.y-cy,tg.x-cx);
@@ -1344,7 +1374,7 @@ function update(dt){
 ===================================================================== */
 const ptrs=new Map();let drag=null,pinch=null;
 cv.addEventListener('pointerdown',e=>{
-  ac();askPushPermission();if(!G)return;
+  ac();if(!G)return;
   try{cv.setPointerCapture(e.pointerId);}catch(_){}
   ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(ptrs.size===1)drag={sx:e.clientX,sy:e.clientY,cx:G.cam.x,cy:G.cam.y,moved:false};
@@ -1352,9 +1382,9 @@ cv.addEventListener('pointerdown',e=>{
 });
 cv.addEventListener('pointermove',e=>{
   if(!ptrs.has(e.pointerId)||!G)return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(pinch&&ptrs.size>=2){const [a,b]=[...ptrs.values()];G.cam.z=clamp(pinch.z*dist(a.x,a.y,b.x,b.y)/pinch.d,32,110);clampCam();return;}
+  if(pinch&&ptrs.size>=2){const [a,b]=[...ptrs.values()];G.cam.z=clamp(pinch.z*dist(a.x,a.y,b.x,b.y)/pinch.d,32,110);clampCam();if(TUT)TUT.panned=true;return;}
   if(drag){const dx=e.clientX-drag.sx,dy=e.clientY-drag.sy;if(Math.abs(dx)+Math.abs(dy)>9)drag.moved=true;
-    if(drag.moved){G.cam.x=drag.cx-dx/G.cam.z;G.cam.y=drag.cy-dy/G.cam.z;G.camTo=null;clampCam();}}
+    if(drag.moved){if(TUT&&Math.abs(dx)+Math.abs(dy)>40)TUT.panned=true;G.cam.x=drag.cx-dx/G.cam.z;G.cam.y=drag.cy-dy/G.cam.z;G.camTo=null;clampCam();}}
 });
 function endPtr(e){
   if(!ptrs.has(e.pointerId))return;ptrs.delete(e.pointerId);
@@ -1363,7 +1393,7 @@ function endPtr(e){
   if(ptrs.size===0)drag=null;else{const p=[...ptrs.values()][0];drag={sx:p.x,sy:p.y,cx:G.cam.x,cy:G.cam.y,moved:true};}
 }
 cv.addEventListener('pointerup',endPtr);cv.addEventListener('pointercancel',endPtr);
-cv.addEventListener('wheel',e=>{if(!G)return;e.preventDefault();G.cam.z=clamp(G.cam.z*(e.deltaY<0?1.1:.9),32,110);clampCam();},{passive:false});
+cv.addEventListener('wheel',e=>{if(!G)return;e.preventDefault();G.cam.z=clamp(G.cam.z*(e.deltaY<0?1.1:.9),32,110);clampCam();if(TUT)TUT.panned=true;},{passive:false});
 
 function tap(sx,sy,cx,cy){
   if(!running||G.paused)return;
@@ -1372,6 +1402,7 @@ function tap(sx,sy,cx,cy){
   if(!t){closeSheet();return;}
   if(G.selU){
     if(t.fog){toast('Heroes can only guard scouted tiles');return;}
+    if(TUT)TUT.moved=true;
     G.selU.px=x+.5+(Math.random()-.5)*.2;G.selU.py=y+.5+(Math.random()-.5)*.2;ring(x+.5,y+.5,.5,'#fff');SFX.click();
     toast(HB[G.selU.id].name+' is moving out!');G.selU=null;buildSquad();return;
   }
@@ -1398,7 +1429,7 @@ function explore(t,cx,cy){
   const c=scoutCost();if(G.stam<c){toast('Out of ⚡ stamina. It recharges over time.');SFX.bad();return;}
   G.stam-=c;stat('scout');t.fog=false;t.rev=.6;const x=t.x+.5,y=t.y+.5,f=t.f;t.f=null;SFX.scout();buzz('light');
   splat(x,y,'#cfc8b8',10,1);
-  if(f==='nest'){const n=2+Math.floor(G.day/2);spawnAt(t,'walker',n);const l=makeZombie('brute',x,y);l.tok=true;G.zs.push(l);notify('🧟','Zombie nest! Kill the 👑 leader for a 📻 code.','bad');shake(3);SFX.alarm();if(!G.seen.nest)setTimeout(()=>playScene('nest'),500);}
+  if(f==='nest'){const n=1+Math.floor(G.day/3);spawnAt(t,'walker',n);const l=makeZombie(G.day>=5?'brute':'walker',x,y);if(G.day<5){l.hp*=2.5;l.max*=2.5;}l.tok=true;G.zs.push(l);notify('🧟','Zombie nest! Kill the 👑 leader for a 📻 code.','bad');shake(3);SFX.alarm();if(!G.seen.nest)setTimeout(()=>playScene('nest'),500);}
   else if(f==='event'){openEvent(t);}
   else if(f==='crate'){const a=rr(8,14),b=rr(8,14);give({food:a,wood:b},[cx,cy]);float(x,y,'SUPPLY CRATE!','#ffd96a',true);}
   else if(f==='wreck'){const n=rr(8,14);give({scrap:n},[cx,cy]);float(x,y,'WRECKED CAR!','#ffd96a',true);}
@@ -1520,6 +1551,7 @@ async function netInit(){
   }catch(e){console.warn('online off',e);}
 }
 async function netPush(force){
+  if(G&&G.tut)return;
   if(!NET.ok||!NET.nick||!G||!running)return;const now=Date.now();if(!force&&now-NET.lastPush<30000)return;NET.lastPush=now;
   const loot={};for(const k of ['food','wood','scrap'])loot[k]=Math.min(300,Math.floor(G[k]*.25));
   try{await NET.db.doc('players/'+NET.uid).set({nick:NET.nick,aid:NET.aid||null,score:myScore(),nights:G.stats.night||0,kills:G.stats.kill||0,best:G.best,heroes:Object.keys(G.owned).length,hq:hqLvl(),def:myDef(),loot,day:G.day,raidwins:G.stats.raidwin||0,ts:now});NET.writeOk=true;}
@@ -1820,15 +1852,20 @@ function openNotes(){
 function openMenu(){
   SFX.click();openModal('⚙️ Menu');
   $('modB').innerHTML='<div class="stat"><div><b>'+(G.stats.night||0)+'</b>Nights survived</div><div><b>🔥 '+G.best+'</b>Best streak</div><div><b>'+(G.stats.kill||0)+'</b>Zombies killed</div><div><b>'+Object.keys(G.owned).length+'/'+HEROES.length+'</b>Heroes</div></div>'+
+    '<div class="mrow">🎚️ Difficulty<button class="btn" id="mDiff">'+DIFF[SET.diff||'normal'].ic+' '+DIFF[SET.diff||'normal'].name+'</button></div>'+
+    '<div class="mrow">🎓 Tutorial (Boot Camp)<button class="btn green" id="mTut">Play</button></div>'+
+    (LN()?'<div class="mrow">📱 Phone alerts<span style="display:flex;gap:6px"><button class="btn gray" id="mPT" style="min-width:0">Test</button><button class="btn" id="mPush">'+(SET.push?'ON':'OFF')+'</button></span></div>':'')+
     '<div class="mrow">🔊 Sound<button class="btn" id="mSnd">'+(SET.sound?'ON':'OFF')+'</button></div>'+
     '<div class="mrow">📳 Vibration<button class="btn" id="mHap">'+(SET.haptics?'ON':'OFF')+'</button></div>'+
     '<div class="mrow">📖 Story so far<button class="btn" id="mStory">Open</button></div>'+
     '<div class="mrow">❓ How to play<button class="btn" id="mHelp">Open</button></div>'+
     '<div class="mrow">🗑️ Reset progress<button class="btn red" id="mReset">Reset</button></div>'+
     '<p class="rates" style="text-align:center;margin-top:12px">Progress saves automatically · Ryonic Inc.</p>';
+  $('mDiff').onclick=()=>{const o=['relaxed','normal','hardcore'];SET.diff=o[(o.indexOf(SET.diff||'normal')+1)%3];saveSet();toast(DIFF[SET.diff].ic+' Difficulty: '+DIFF[SET.diff].name+' (from next night)');openMenu();};
+  if($('mPush')){$('mPush').onclick=async()=>{if(SET.push){SET.push=false;saveSet();cancelPush();openMenu();return;}const ok=await askPushPermission();toast(ok?'📱 Alerts on!':'Alerts are blocked. Turn them on in iPhone Settings → Zombies Survive.');openMenu();};$('mPT').onclick=testPush;}
   $('mSnd').onclick=()=>{SET.sound=!SET.sound;saveSet();openMenu();};
   $('mHap').onclick=()=>{SET.haptics=!SET.haptics;saveSet();buzz('medium');openMenu();};
-  $('mHelp').onclick=openHelp;$('mStory').onclick=openStory;
+  $('mHelp').onclick=openHelp;$('mStory').onclick=openStory;$('mTut').onclick=()=>{closeModal();startTutorial('menu');};
   $('mReset').onclick=()=>{$('modB').innerHTML='<p style="text-align:center;margin:10px 0 16px;font-size:16px">Delete ALL progress and start over?<br><span class="rates">This can\'t be undone.</span></p><div class="acts"><button class="btn gray" id="rNo">Cancel</button><button class="btn red" id="rYes">Yes, reset</button></div>';
     $('rNo').onclick=openMenu;$('rYes').onclick=resetGame;};
 }
@@ -1882,7 +1919,7 @@ function speakerInfo(who){
 function playScene(key,force,cb){
   const sc=SCENES[key];if(!sc||(!force&&G.seen[key]))return;
   G.seen[key]=1;save();
-  talkQ.push({chap:sc.t?[sc.t,sc.c]:null});
+  if(sc.t)talkQ.push({chap:[sc.t,sc.c]});
   for(const [who,txt] of sc.l)talkQ.push({who,txt});
   if(cb)talkQ.push({cb});
   if(!talkOn&&$('mod').classList.contains('hide'))showTalk();
@@ -1891,17 +1928,18 @@ function playLines(lines){for(const [who,txt] of lines)talkQ.push({who,txt});if(
 function showTalk(){
   if(!talkQ.length){endTalk();return;}
   const it=talkQ.shift();
-  if(it.cb){it.cb();showTalk();return;}
+  if(it.cb){try{it.cb();}catch(e){console.error('cb',e);}showTalk();return;}
+  if(!it.chap&&(!it.who||typeof it.txt!=='string')){showTalk();return;}
   talkOn=true;G.paused=true;closeSheet();$('talk').classList.add('show');$('talkSkip').style.display='block';
   if(it.chap){$('talkChap').innerHTML=it.chap[0].toUpperCase()+'<b>'+it.chap[1]+'</b>';SFX.night();if(!talkQ.length||!talkQ[0].who){showTalk();}else showTalk();return;}
   const sp=speakerInfo(it.who),av=$('talkAv');
   av.className='av '+sp.cls;$('talkImg').src=sp.img;void av.offsetWidth;av.style.animation='none';void av.offsetWidth;av.style.animation='';
   $('talkRow').classList.toggle('right',it.who!=='ada'&&it.who!=='echo'&&it.who!=='echo2');
   $('talkName').textContent=sp.name;typeFull=it.txt;typeI=0;$('talkTxt').textContent='';
-  clearInterval(typeT);typeT=setInterval(()=>{typeI+=2;$('talkTxt').textContent=typeFull.slice(0,typeI);if(typeI%6===0)tone(it.who.startsWith('echo')?300+Math.random()*200:520+Math.random()*80,.03,'triangle',.02);if(typeI>=typeFull.length)clearInterval(typeT);},22);
+  clearInterval(typeT);typeT=setInterval(()=>{if(typeof typeFull!=='string'){clearInterval(typeT);return;}typeI+=2;$('talkTxt').textContent=typeFull.slice(0,typeI);if(typeI%6===0)tone(it.who.startsWith('echo')?300+Math.random()*200:520+Math.random()*80,.03,'triangle',.02);if(typeI>=typeFull.length)clearInterval(typeT);},22);
 }
 function nextTalk(){
-  if(typeI<typeFull.length){typeI=typeFull.length;$('talkTxt').textContent=typeFull;clearInterval(typeT);return;}
+  if(typeof typeFull==='string'&&typeI<typeFull.length){typeI=typeFull.length;$('talkTxt').textContent=typeFull;clearInterval(typeT);return;}
   SFX.click();showTalk();
 }
 function endTalk(){
@@ -2093,13 +2131,79 @@ function loop(t){
     if(running&&G){update(dt*G.speed);if(G.shake>0)G.shake=Math.max(0,G.shake-dt*20);G.uiT-=dt;if(G.uiT<=0){G.uiT=.12;G.uiN=(G.uiN||0)+1;refreshTop();}}
   }catch(e){console.error('update',e);syncB();}
   try{if(G){syncB();draw();}}catch(e){console.error('draw',e);try{ctx.restore();}catch(_){}}
-  try{updHand();}catch(e){}
+  try{tutTick();updHand();}catch(e){}
+}
+/* =====================================================================
+   BOOT CAMP — playable tutorial (sandbox: never touches the real save)
+===================================================================== */
+let TUT=null,TUT_AUTO=false;
+const TSTEPS=[
+  {t:'Welcome to Boot Camp, Commander! First, drag the map with your finger to look around. You can pinch to zoom too.',chk:()=>TUT.panned},
+  {t:'See the glowing ? tiles at the edge of your land? Tap one to send scouts. Scouting costs ⚡ stamina.',chk:()=>(G.stats.scout||0)>=1,
+    setup:()=>{const t=nearestTile(t=>explorable(t));if(t)t.f='crate';},tgt:()=>G.phase==='day'?{tile:nearestTile(t=>explorable(t)&&t.f==='crate')||nearestTile(t=>explorable(t))}:null},
+  {t:'Supplies! Now tap an empty GRASS tile and build a 🌾 Farm. Farms grow food.',chk:()=>countType('farm')>=1,
+    setup:()=>{G.wood=Math.max(G.wood,20);},tgt:()=>optOr('farm',t=>!t.fog&&!t.b&&t.t===0)},
+  {t:'A survivor is working your farm. Tap the farm when the 🍖 bubble pops up to collect the food!',chk:()=>(G.stats.collect||0)>=1,
+    setup:()=>{const f=G.tiles.find(t=>t.b&&t.b.type==='farm');if(f)f.b.store=Math.max(f.b.store||0,15);},tgt:()=>{const f=G.tiles.find(t=>t.b&&t.b.type==='farm');return f?{tile:f}:null;}},
+  {t:'Heroes defend your camp. Tap 📻 Recruit and use your radio code to recruit a hero!',chk:()=>G.pulls>=1&&$('mod').classList.contains('hide'),
+    setup:()=>{G.tokens=Math.max(G.tokens,1);},tgt:()=>$('mod').classList.contains('hide')?(G.pulls>=1?null:{q:'#recBtn'}):(G.pulls<1?{q:'#p1'}:{q:'#modX'})},
+  {t:'Nice recruit! Tap a hero standing on the map, then tap a tile to send them there.',chk:()=>TUT.moved,
+    tgt:()=>{if(G.selU){return {tile:nearestTile(t=>!t.fog&&!t.b&&dist(t.x,t.y,C,C)>=2)};}const u=G.units.find(u=>!u.down);return u?{w:[u.x,u.y-.2]}:null;}},
+  {t:'Zombies attack at night! Tap an empty tile and build a 🔫 Turret to shoot them.',chk:()=>countType('turret')>=1,
+    setup:()=>{G.wood=Math.max(G.wood,15);G.scrap=Math.max(G.scrap,15);},tgt:()=>optOr('turret',t=>!t.fog&&!t.b)},
+  {t:'Ready? Tap ⚔️ START NIGHT to call in the horde. (In the real game, night also comes on its own.)',chk:()=>G.phase==='night',tgt:()=>({q:'#nightBtn'})},
+  {t:'Here they come! When zombies get close, tap a GLOWING hero portrait at the bottom to fire their special skill! ⚡',chk:()=>(G.stats.skill||0)>=1||G.phase==='day',
+    setup:()=>{for(const u of G.units)u.scd=0;},tgt:()=>{const u=G.units.find(u=>!u.down&&u.scd<=0&&zIn(u.x,u.y,Math.max(3.5,u.range+2)).length);return u?{q:'#port_'+u.id}:null;}},
+  {t:'Hold the line! Your HQ, turrets and heroes fight on their own. Clear every zombie to see the sunrise.',chk:()=>G.phase==='day'&&G.day>=2},
+  {t:'You survived your first night! 🎉 You know the basics: scout, build, collect, recruit and defend. The quest bar will guide you from here.',fin:true}
+];
+function optOr(k,pred){const e=document.querySelector('.opt[data-k="'+k+'"]');if(e&&e.offsetParent&&$('sheet').classList.contains('show'))return {q:'.opt[data-k="'+k+'"]'};const t=nearestTile(pred);return t?{tile:t}:null;}
+function tutTarget(){if(!TUT||TUT.i>=TSTEPS.length)return null;const st=TSTEPS[TUT.i];if(!st.tgt)return null;if(talkOn)return null;try{return st.tgt();}catch(e){return null;}}
+function startTutorial(from){
+  if(from==='menu')save();
+  TUT={i:0,from,panned:false,moved:false};TUT_AUTO=!!SET.autoSkill;SET.autoSkill=false;
+  talkQ=[];if(talkOn)endTalk();closeSheet();
+  $('start').classList.add('hide');$('over').classList.add('hide');$('mod').classList.add('hide');
+  G=baseState();G.tut=true;G.tiles=genMap();G.surv=0;addSurv(4,true);
+  for(const t of G.tiles){if(t.f)t.f=null;}
+  G.seen={intro:1,firstNight:1,firstDawn:1,nest:1,ch2:1,gen:1,ch3:1,boss:1,ch4:1,ch5:1};G.introDone=true;G.lastDaily=todayStr();
+  G.food=40;G.wood=40;G.scrap=20;G.tokens=0;G.poiT=1e9;G.weather='clear';G.t=DAY;
+  recalcFx();deploy('bolt');afterLoad();syncB();resize();clampCam();refreshTop();buildSquad();
+  running=true;G.paused=false;$('quest').hidden=true;$('tut').hidden=false;$('tutImg').src=IMG.ada;
+  tutShow();SFX.day();
+}
+function tutShow(){
+  const st=TSTEPS[TUT.i];if(st.setup)try{st.setup();}catch(e){}
+  $('tutN').textContent='BOOT CAMP · '+(TUT.i+1)+'/'+TSTEPS.length;$('tutT').textContent=st.t;
+  const done=TUT.from==='menu'&&hasSave()?'Back to my base':'Start the real game';
+  $('tutBtns').innerHTML=st.fin?'<button class="go" id="tutGo">'+done+'</button>':'<button class="sk" id="tutSkip">End<br>training</button>';
+  if(st.fin){$('tutGo').onclick=()=>endTutorial(true);banner('TRAINING COMPLETE','#ffcf3a');SFX.ssr();}
+  else $('tutSkip').onclick=()=>{SFX.click();endTutorial(false);};
+}
+function tutTick(){
+  if(!TUT||!running)return;const st=TSTEPS[TUT.i];if(st.fin||!st.chk)return;
+  let ok=false;try{ok=st.chk();}catch(e){}
+  if(ok){TUT.i++;SFX.claim();buzz('light');tutShow();}
+}
+function endTutorial(finished){
+  const from=TUT?TUT.from:'first';TUT=null;SET.autoSkill=TUT_AUTO;SET.tutDone=true;saveSet();
+  $('tut').hidden=true;$('quest').hidden=false;$('hand').style.display='none';
+  talkQ=[];if(talkOn)endTalk();closeSheet();$('mod').classList.add('hide');$('over').classList.add('hide');
+  G.zs=[];
+  let loaded=false;if(from==='menu')loaded=load();
+  if(!loaded){newGame();if(finished)G.tokens+=2;}
+  G.blds=G.tiles.filter(t=>t.b);G.paused=false;clampCam();refreshTop();buildSquad();refreshQuest();running=true;
+  if(!loaded){
+    if(finished)setTimeout(()=>notify('🎓','Boot Camp complete! Bonus: +2 📻 recruit codes','epic'),400);
+    playScene('intro',false,()=>{G.introDone=true;save();setTimeout(()=>{notify('📻','You have '+Math.floor(G.tokens)+' recruit codes. Tap Recruit to get heroes!','epic');checkDaily();setTimeout(pushOffer,6000);},700);});
+  }else toast('Welcome back to your base!');
 }
 function go(fresh){
-  ac();setTimeout(netInit,1500);
+  ac();setTimeout(pushOffer,15000);setTimeout(netInit,1500);
   $('start').classList.add('hide');$('over').classList.add('hide');$('mod').classList.add('hide');
   resize();
   let loaded=false;if(!fresh)loaded=load();
+  if(!loaded&&!SET.tutDone){running=true;startTutorial('first');return;}
   if(!loaded)newGame();
   G.blds=G.tiles.filter(t=>t.b);clampCam();refreshTop();running=true;SFX.day();
   if(!G.seen.intro){playScene('intro',false,()=>{G.introDone=true;save();setTimeout(()=>{notify('📻','You have 3 recruit codes. Tap Recruit to get heroes!','epic');checkDaily();},700);});}
@@ -2114,7 +2218,8 @@ function startScreen(){
       $('bBack').onclick=startScreen;$('bYes').onclick=()=>{try{localStorage.removeItem(SAVE_KEY);}catch(e){}go(true);};};}
   else $('bPlay').onclick=()=>go(true);
 }
-document.addEventListener('visibilitychange',()=>{if(document.hidden){save();schedulePush();}else{cancelPush();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){save();schedulePush();}else{cancelPush();setTimeout(schedulePush,30000);}});
+setInterval(()=>{if(running&&!document.hidden)schedulePush();},30000);
 window.addEventListener('pagehide',save);
 resize();bakeArt();drawStartArt();
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{bakeArt();drawStartArt();});
