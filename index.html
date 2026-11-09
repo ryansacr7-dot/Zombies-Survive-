@@ -1849,12 +1849,54 @@ function openNotes(){
   SFX.click();openModal('🔔 Notifications');G.unread=0;
   $('modB').innerHTML=G.notes.length?G.notes.map(n=>'<div class="nl"><i>'+n.icon+'</i><span>'+n.text+'</span><small>'+ago(n.at)+'</small></div>').join(''):'<p class="rates" style="text-align:center;padding:20px;font-size:14px">Nothing yet. Go survive! 🧟</p>';
 }
+/* ---------- Ryonic sync: sends this game's progress to the Ryonic app ---------- */
+function ryonicCanSync(){ try { return !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()); } catch(e){ return false; } }
+function ryonicLink(stats){
+  var json = JSON.stringify(stats);
+  var b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  var s = 'ryonic|' + b64, h = 2166136261;
+  for (var i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return 'ryonic://sync?d=' + b64 + '&c=' + h.toString(16);
+}
+function ryonicSend(stats){
+  var link = ryonicLink(stats);
+  if (typeof window.__ryonicOpen === 'function') window.__ryonicOpen(link); else window.location.href = link;
+}
+/* when this game runs as an iPhone app, share its progress live with the Ryonic app (App Group) */
+function ryonicShare(getStats){
+  if (!ryonicCanSync()) return;
+  var P = null;
+  try { var C = window.Capacitor; P = (C.Plugins && C.Plugins.RyonicLink) || (C.registerPlugin ? C.registerPlugin('RyonicLink') : null); } catch(e){}
+  if (!P) return;
+  function put(){ try { var st = getStats(); var r = P.write({ key: st.g, value: JSON.stringify(st) }); if (r && r.catch) r.catch(function(){}); } catch(e){} }
+  setTimeout(put, 2000); setInterval(put, 5000);
+  document.addEventListener('visibilitychange', function(){ if (document.hidden) put(); });
+  window.addEventListener('pagehide', put);
+}
+/* when this game runs inside the Ryonic app, keep Ryonic updated with the latest stats */
+function ryonicStream(getStats){
+  if (window.parent === window) return;
+  function post(){ try { window.parent.postMessage({ ryonicSync: ryonicLink(getStats()) }, '*'); } catch(e){} }
+  setTimeout(post, 1500); setInterval(post, 5000);
+  window.addEventListener('pagehide', post);
+  window.addEventListener('message', function(e){ if (e.data && e.data.ryonicFlush) setTimeout(post, 50); });
+}
+function zsStats(){
+  var g = (typeof G !== 'undefined' && G && !G.tut) ? G : null;
+  if (!g) { try { g = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch(e){} }
+  g = g || {}; var st = g.stats || {};
+  return { g:'zombies', v:1, t:Date.now(), name:'', nights:st.night||0, kills:st.kill||0, bestStreak:g.best||0,
+    heroes:Object.keys(g.owned||{}).length, day:g.day||0, raids:st.raidwin||0, played:(st.night||0) > 0 || (st.kill||0) > 0 };
+}
+ryonicStream(zsStats);
+ryonicShare(zsStats);
 function openMenu(){
   SFX.click();openModal('⚙️ Menu');
   $('modB').innerHTML='<div class="stat"><div><b>'+(G.stats.night||0)+'</b>Nights survived</div><div><b>🔥 '+G.best+'</b>Best streak</div><div><b>'+(G.stats.kill||0)+'</b>Zombies killed</div><div><b>'+Object.keys(G.owned).length+'/'+HEROES.length+'</b>Heroes</div></div>'+
     '<div class="mrow">🎚️ Difficulty<button class="btn" id="mDiff">'+DIFF[SET.diff||'normal'].ic+' '+DIFF[SET.diff||'normal'].name+'</button></div>'+
     '<div class="mrow">🎓 Tutorial (Boot Camp)<button class="btn green" id="mTut">Play</button></div>'+
     (LN()?'<div class="mrow">📱 Phone alerts<span style="display:flex;gap:6px"><button class="btn gray" id="mPT" style="min-width:0">Test</button><button class="btn" id="mPush">'+(SET.push?'ON':'OFF')+'</button></span></div>':'')+
+    (ryonicCanSync()?'<div class="mrow">🔗 Sync to Ryonic<button class="btn" id="mRy">Sync</button></div>':'')+
     '<div class="mrow">🔊 Sound<button class="btn" id="mSnd">'+(SET.sound?'ON':'OFF')+'</button></div>'+
     '<div class="mrow">📳 Vibration<button class="btn" id="mHap">'+(SET.haptics?'ON':'OFF')+'</button></div>'+
     '<div class="mrow">📖 Story so far<button class="btn" id="mStory">Open</button></div>'+
@@ -1863,6 +1905,7 @@ function openMenu(){
     '<p class="rates" style="text-align:center;margin-top:12px">Progress saves automatically · Ryonic Inc.</p>';
   $('mDiff').onclick=()=>{const o=['relaxed','normal','hardcore'];SET.diff=o[(o.indexOf(SET.diff||'normal')+1)%3];saveSet();toast(DIFF[SET.diff].ic+' Difficulty: '+DIFF[SET.diff].name+' (from next night)');openMenu();};
   if($('mPush')){$('mPush').onclick=async()=>{if(SET.push){SET.push=false;saveSet();cancelPush();openMenu();return;}const ok=await askPushPermission();toast(ok?'📱 Alerts on!':'Alerts are blocked. Turn them on in iPhone Settings → Zombies Survive.');openMenu();};$('mPT').onclick=testPush;}
+  if($('mRy'))$('mRy').onclick=()=>{SFX.click();save();ryonicSend(zsStats());};
   $('mSnd').onclick=()=>{SET.sound=!SET.sound;saveSet();openMenu();};
   $('mHap').onclick=()=>{SET.haptics=!SET.haptics;saveSet();buzz('medium');openMenu();};
   $('mHelp').onclick=openHelp;$('mStory').onclick=openStory;$('mTut').onclick=()=>{closeModal();startTutorial('menu');};
@@ -1878,6 +1921,7 @@ function openHelp(){
   '<p>🍖 Buildings fill up. Tap them to <b>collect</b>! Tap again to upgrade.</p>'+
   '<p>🦸 Recruit heroes with 📻. Tap a hero on the map, then a tile, to move them. <b>Tap their portrait</b> in battle to fire their skill!</p>'+
   '<p>🧍 Survivors work your buildings. Keep them fed and happy (tap 🧍 up top). Meals 🍲 from the Kitchen boost morale.</p>'+
+  '<p>🔗 <b>Ryonic</b> is the hub app for every Ryonic Inc. game. In ⚙️ Menu, tap <b>Sync to Ryonic</b> to send your nights survived, zombies killed and heroes, so Ryonic quests count your real progress. Sync again any time.</p>'+
   '<p>🔌 Buildings use power. Build and upgrade a Power Plant to keep everything running.</p>'+
   '<p>🎒 Tap 📦 depots and 🏕️ zombie camps on the map to send heroes on expeditions.</p>'+
   '<p>⚔️ Hit <b>Start Night</b> when ready (early = bonus). Every 5th night: a boss.</p>'+
