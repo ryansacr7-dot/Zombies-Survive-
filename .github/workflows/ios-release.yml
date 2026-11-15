@@ -288,29 +288,6 @@ jobs:
                      archive
 
       # Signing happens here, with the App Store profile
-      # The archive above is unsigned, so give it a temporary signature that carries the App Group
-      # entitlement; the export step re-signs it for the App Store.
-      - name: Add App Group entitlement
-        run: |
-          set -e
-          APP=$(find "$RUNNER_TEMP" -maxdepth 4 -path "*.xcarchive/Products/Applications/*.app" -type d | head -1)
-          echo "App: $APP"
-          cat > "$RUNNER_TEMP/ryonic.entitlements" <<'PLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>com.apple.security.application-groups</key>
-              <array>
-                  <string>group.com.ryonic.shared</string>
-              </array>
-          </dict>
-          </plist>
-          PLIST
-          codesign --force --sign - --timestamp=none --entitlements "$RUNNER_TEMP/ryonic.entitlements" "$APP"
-          echo "--- entitlements now in the app ---"
-          codesign -d --entitlements - "$APP" 2>/dev/null || codesign -d --entitlements :- "$APP"
-
       - name: Export IPA (signed for the App Store)
         env:
           API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
